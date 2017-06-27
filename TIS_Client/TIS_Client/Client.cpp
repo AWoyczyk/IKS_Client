@@ -3,8 +3,12 @@
 #include <string>
 #include <iostream>
 #include <stdio.h>
+#include <iostream>
+#include <sstream>
 
 #pragma once
+
+using namespace std;
 
 int readparam(unsigned char flag, unsigned char address, unsigned char slot, unsigned char index) {
 	//unsigned int iSockFd = INVALID_SOCKET;
@@ -63,15 +67,15 @@ int readparam(unsigned char flag, unsigned char address, unsigned char slot, uns
 	int iRcvdBytes = recvfrom(iSockFd, reinterpret_cast<char*>(buff), 1024, 0, (struct sockaddr*)&cliAddr, &cliLen);
 
 	if (iRcvdBytes > 0) {
-		printf("received %3d bytes\n", iRcvdBytes);
+		printf("received %3d bytes\n", iRcvdBytes-1);
 		if (buff[0] == sbuf[0]) {
 			int i;
 			for (i = 1; i < iRcvdBytes; i++) {
-				printf(" %3d,", buff[i]);
+				printf(" %3u,", buff[i]);
 			}
 			printf("\n == \n");
 			for (i = 1; i < iRcvdBytes; i++) {
-				printf(" 0x%2X,", buff[i]);
+				printf(" 0x%02X,", buff[i]);
 			}
 			printf("\n == \n");
 			for (i = 1; i < iRcvdBytes; i++) {
@@ -109,9 +113,17 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	unsigned char fla = 0xff & rand();
-	int add = 7;
-	int slo = 1;
-	int idx = 114;
-
-	readparam(fla, add, slo, idx);
+	unsigned int add = 6;
+	unsigned int slo = 1;
+	unsigned int idx = 1;
+	while (true) {
+		printf("\nAdresse:");
+		cin >> add;
+		printf("\nSlot:");
+		cin >> slo;
+		printf("\nIndex:");
+		cin >> idx;
+		readparam(fla, add, slo, idx);
+	}
+	
 }
