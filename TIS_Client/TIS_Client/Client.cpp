@@ -5,11 +5,20 @@
 #include <stdio.h>
 #include <iostream>
 #include <sstream>
+#include "tinyxml2.h"
 
 #pragma once
 
-using namespace std;
 
+union Value101 {
+	struct {
+		float value;
+		unsigned char flag;
+	} data;
+	unsigned char bytes [5];
+};
+
+using namespace std;
 int readparam(unsigned char flag, unsigned char address, unsigned char slot, unsigned char index) {
 	//unsigned int iSockFd = INVALID_SOCKET;
 
@@ -112,6 +121,18 @@ int main(int argc, char **argv) {
 		printf("WSAStartup failed with error: %d\n", err);
 		return 1;
 	}
+
+	/*tinyxml2::XMLDocument manIdTable;
+	manIdTable.LoadFile("Man_ID_Table.xml");
+	tinyxml2::XMLElement* level = manIdTable.FirstChildElement();
+	tinyxml2::XMLElement* man = level->FirstChildElement("Manufacturer");
+	tinyxml2::XMLElement* name = man->FirstChildElement("ManufacturerName");
+	tinyxml2::XMLText* text = name->FirstChild()->ToText();
+	const char* nameChars = text->Value();
+	printf("Name: %s", nameChars);*/
+
+
+
 	unsigned char fla = 0xff & rand();
 	unsigned int add = 6;
 	unsigned int slo = 1;
