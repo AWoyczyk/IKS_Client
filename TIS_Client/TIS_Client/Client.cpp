@@ -18,6 +18,33 @@ union Value101 {
 	unsigned char bytes [5];
 };
 
+struct InfoDM {
+	int numB;
+	int numBTypes;
+};
+
+struct InfoCD {
+	int numPB;
+	int numFB;
+	int numTB;
+};
+
+struct InfoPB {
+	char* manName;
+	int manId;
+	char* deviceId;
+	char* hwRev;
+	char* swRev;
+};
+
+struct InfoTB {
+
+};
+
+struct InfoFB {
+	double value;
+};
+
 tinyxml2::XMLDocument manIdTable;
 
 using namespace std;
@@ -153,14 +180,14 @@ int main(int argc, char **argv) {
 	unsigned char fla = 0xff & rand();
 	unsigned int add = 6;
 	unsigned int slo = 1;
-	unsigned int idx = 1;
+	unsigned int idx = 0;
 	while (true) {
-		printf("\nAdresse:");
+		printf("\nPlease enter Address of Device:");
 		cin >> add;
-		printf("\nSlot:");
+		/*printf("\nSlot:");
 		cin >> slo;
 		printf("\nIndex:");
-		cin >> idx;
+		cin >> idx;*/
 		readparam(fla, add, slo, idx);
 	}
 	
