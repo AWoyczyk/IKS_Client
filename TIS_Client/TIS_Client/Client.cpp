@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <sstream>
+#include <vector>
 #include "tinyxml2.h"
 
 #pragma once
@@ -38,12 +39,18 @@ struct InfoPB {
 };
 
 struct InfoTB {
-
+	char* unitName;
+	int unitId;
 };
 
 struct InfoFB {
 	double value;
 };
+
+std::vector<std::string> blockTypes = { "Physical Block", "Transducer Block", "Function Block" };
+std::vector<std::string> pbTypes = {"Transmitter", "Actuator", "Discrete I/O", "Controller", "Analyser", "Lab Device"};
+std::vector<std::string> tbTypes = {"Pressure", "Temperature", "Flow", "Level", "Actuator", "Discrete I/O", "Analyzer", "Auxiliary", "Alarm"};
+std::vector<std::string> fbTypes = {"Input", "Output", "Control", "Advanced Control", "Calculation", "Auxiliary", "Alert"};
 
 tinyxml2::XMLDocument manIdTable;
 
