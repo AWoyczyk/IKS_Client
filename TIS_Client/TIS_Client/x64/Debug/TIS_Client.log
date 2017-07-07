@@ -1,9 +1,0 @@
-﻿  Client.cpp
-Client.cpp(56): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings
-  C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\um\WinSock2.h(1830): note: see declaration of 'inet_addr'
-Client.cpp(149): warning C4473: 'printf' : not enough arguments passed for format string
-  Client.cpp(149): note: placeholders and their parameters expect 1 variadic arguments, but 0 were provided
-  Client.cpp(149): note: the missing variadic argument 1 is required by format string '%s'
-e:\alexander\uni\10. semester\vert1 - industrielle kommunikationssysteme\praktikum\client\iks_client\tis_client\tis_client\client.cpp(108): warning C4715: 'readparam': not all control paths return a value
-e:\alexander\uni\10. semester\vert1 - industrielle kommunikationssysteme\praktikum\client\iks_client\tis_client\tis_client\client.cpp(148): warning C4700: uninitialized local variable 'name' used
-  TIS_Client.vcxproj -> E:\Alexander\UNI\10. Semester\VERT1 - Industrielle Kommunikationssysteme\Praktikum\Client\IKS_Client\TIS_Client\x64\Debug\TIS_Client.exe
