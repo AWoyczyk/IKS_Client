@@ -13,49 +13,72 @@
 
 union Value101 {
 	struct {
+		//unsigned char flag;
 		float value;
-		unsigned char flag;
 	} data;
-	unsigned char bytes [5];
+	unsigned char bytes [4];
+};
+
+union Unsigned16 {
+	uint16_t uint;
+	unsigned char bytes[2];
+};
+
+struct indexOffset {
+	unsigned char offset;
+	unsigned char index;
+};
+
+struct slotIndex {
+	unsigned char index;
+	unsigned char slot;
 };
 
 struct InfoDM {
-	int numB;
-	int numBTypes;
+	unsigned int numB;
+	unsigned int numBTypes;
 };
 
 struct InfoCD {
-	int numPB;
-	int numFB;
-	int numTB;
+	unsigned int numPB;
+	unsigned int numFB;
+	unsigned int numTB;
 };
 
 struct InfoPB {
-	char* manName;
-	int manId;
-	char* deviceId;
-	char* hwRev;
-	char* swRev;
+	std::string manName;
+	unsigned int manId;
+	char deviceId[16];
+	char hwRev[16];
+	char swRev[16];
+	std::string parentClass;
+	std::string blockType;
 };
 
 struct InfoTB {
-	char* unitName;
-	int unitId;
+	std::string unitName;
+	unsigned int childClass;
+	std::string parentClass;
+	std::string blockType;
+	unsigned int unitId;
 };
 
 struct InfoFB {
+	unsigned int childClass;
+	std::string parentClass;
+	std::string blockType;
 	double value;
 };
 
-std::vector<std::string> blockTypes = { "Physical Block", "Transducer Block", "Function Block" };
-std::vector<std::string> pbTypes = {"Transmitter", "Actuator", "Discrete I/O", "Controller", "Analyser", "Lab Device"};
-std::vector<std::string> tbTypes = {"Pressure", "Temperature", "Flow", "Level", "Actuator", "Discrete I/O", "Analyzer", "Auxiliary", "Alarm"};
-std::vector<std::string> fbTypes = {"Input", "Output", "Control", "Advanced Control", "Calculation", "Auxiliary", "Alert"};
+std::vector<std::string> blockTypes = {"-", "Physical Block", "Function Block", "Transducer Block"};
+std::vector<std::string> pbTypes = {"-", "Transmitter", "Actuator", "Discrete I/O", "Controller", "Analyser", "Lab Device"};
+std::vector<std::string> tbTypes = {"-", "Pressure", "Temperature", "Flow", "Level", "Actuator", "Discrete I/O", "Analyzer", "Auxiliary", "Alarm"};
+std::vector<std::string> fbTypes = {"-", "Input", "Output", "Control", "Advanced Control", "Calculation", "Auxiliary", "Alert"};
 
 tinyxml2::XMLDocument manIdTable;
 
 using namespace std;
-int readparam(unsigned char flag, unsigned char address, unsigned char slot, unsigned char index) {
+int readparam(unsigned char flag, unsigned char address, unsigned char slot, unsigned char index, unsigned char* response) {
 	//unsigned int iSockFd = INVALID_SOCKET;
 
 	SOCKET iSockFd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -107,13 +130,17 @@ int readparam(unsigned char flag, unsigned char address, unsigned char slot, uns
 	int cliLen = sizeof(cliAddr);
 
 	unsigned char buff[1024];
+	unsigned char* p = buff;
 
 	printf("receiving...\n");
 	int iRcvdBytes = recvfrom(iSockFd, reinterpret_cast<char*>(buff), 1024, 0, (struct sockaddr*)&cliAddr, &cliLen);
 
-	if (iRcvdBytes > 0) {
+	if (iRcvdBytes > 1) {
 		printf("received %3d bytes\n", iRcvdBytes-1);
 		if (buff[0] == sbuf[0]) {
+			memcpy(response, p+1, 1023 * sizeof(char));
+
+			/*
 			int i;
 			for (i = 1; i < iRcvdBytes; i++) {
 				printf(" %3u,", buff[i]);
@@ -127,6 +154,7 @@ int readparam(unsigned char flag, unsigned char address, unsigned char slot, uns
 				printf(" %c,", buff[i]);
 			}
 			printf("\n");
+			*/
 		}
 		else {
 			printf("%d\n", WSAGetLastError());
@@ -136,12 +164,14 @@ int readparam(unsigned char flag, unsigned char address, unsigned char slot, uns
 	else {
 		printf("%d\n", WSAGetLastError());
 		printf("receive fail %d\n", iRcvdBytes);
+		exit(1);
 	}
 
 	closesocket(iSockFd);
+	return iRcvdBytes - 1;
 }
 
-int getName(int id, const char* name) {
+int getName(int id, char* name) {
 	const char* name_str;
 	tinyxml2::XMLElement* level = manIdTable.FirstChildElement()->FirstChildElement("Manufacturer");
 	for (level; level; level = level->NextSiblingElement("Manufacturer")) {
@@ -153,10 +183,152 @@ int getName(int id, const char* name) {
 			tinyxml2::XMLElement* nameEle = level->FirstChildElement("ManufacturerInfo")->FirstChildElement("ManufacturerName");
 			name_str = nameEle->GetText();
 			//printf("%d = %s", id_int, name_str);
-			name = name_str;
-			return 1;
+			strcpy(name, name_str);
+			return 0;
 		}
 	}
+	return 1;
+}
+
+int getVal(void * dest, unsigned char* src, int numBytes) {
+	for (int i = 0; i < numBytes; i++) {
+		unsigned char byte = *(src + i);
+		*((reinterpret_cast<unsigned char*>(dest))+(numBytes-(i+1))) = byte;
+	}
+	return 0;
+}
+
+int startRequest(unsigned int address) {
+	int numRcvdB;
+	Unsigned16 numDirObj;
+	Unsigned16 numDirEntry;
+	Unsigned16 numCompListDirEntry;
+	Unsigned16 firstCompDirListDirEntry;
+	unsigned char response[1024];
+	Unsigned16 value16;
+	Value101 value101;
+	uint8_t value8;
+	unsigned char str[16];
+	indexOffset indexOffsetPB, indexOffsetFB, indexOffsetTB;
+	slotIndex slotIndexAddr;
+	InfoDM deviceManagement{};
+	InfoCD compositeDirectory{};
+	InfoPB pbInfo{};
+	std::vector<InfoTB> tbs;
+	std::vector<InfoFB> fbs;
+
+
+	uint16_t add = address;
+	uint16_t slo = 1;
+	uint16_t idx = 0;
+	unsigned char fla = 0xff & rand();
+
+	//Device Management
+	numRcvdB = readparam(fla, add, slo, idx, response);
+
+	getVal(&numDirObj.bytes, response + 4, sizeof(numDirObj));
+	getVal(&numDirEntry.bytes, response + 6, sizeof(numDirEntry));
+	getVal(&numCompListDirEntry.bytes, response + 10, sizeof(numCompListDirEntry));
+	getVal(&firstCompDirListDirEntry.bytes, response + 8, sizeof(firstCompDirListDirEntry));
+
+	deviceManagement.numBTypes = numCompListDirEntry.uint;
+	deviceManagement.numB = numDirEntry.uint - numCompListDirEntry.uint;
+
+	//Directory List
+	idx = firstCompDirListDirEntry.uint;
+	numRcvdB = readparam(fla, add, slo, idx, response);
+	getVal(&value16, response + 2, sizeof(value16));
+	getVal(&indexOffsetPB, response, sizeof(value16));
+	compositeDirectory.numPB = value16.uint;
+	getVal(&value16, response + 6, sizeof(value16));
+	getVal(&indexOffsetTB, response + 4, sizeof(value16));
+	compositeDirectory.numTB = value16.uint;
+	getVal(&value16, response + 10, sizeof(value16));
+	getVal(&indexOffsetFB, response + 8, sizeof(value16));
+	compositeDirectory.numFB = value16.uint;
+
+	//Directory
+	readparam(fla, add, slo, firstCompDirListDirEntry.uint, response);
+
+	/*
+	 * Physical Block:
+	 */
+	if (indexOffsetPB.index != idx) {
+		numRcvdB = readparam(fla, add, slo, indexOffsetPB.index, response);
+		indexOffsetPB.offset -= numCompListDirEntry.uint;
+		indexOffsetTB.offset -= numCompListDirEntry.uint;
+		indexOffsetFB.offset -= numCompListDirEntry.uint;
+	}
+	getVal(&slotIndexAddr, response + ((indexOffsetPB.offset - 1) * 4), sizeof(slotIndexAddr));
+	if (address == 7) { slotIndexAddr.index = 114; } //Physical Block at another index as stated
+	numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index, response);
+	memcpy(&value8, response+1, 1);
+	pbInfo.blockType = blockTypes.at(value8);
+	memcpy(&value8, response + 2, 1);
+	pbInfo.parentClass = pbTypes.at(value8);
+
+	//Manufacturer
+	numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 10, response);
+	getVal(&value16, response, sizeof(value16));
+	pbInfo.manId = value16.uint;
+	char s[64];
+	getName(pbInfo.manId, s);
+	pbInfo.manName = s;
+	//DeviceId
+	numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 11, response);
+	strcpy(pbInfo.deviceId, reinterpret_cast<char*>(response));
+	//HW & SW Revision
+	numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 9, response);
+	strcpy(pbInfo.hwRev, reinterpret_cast<char*>(response));
+	numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 8, response);
+	strcpy(pbInfo.swRev, reinterpret_cast<char*>(response));
+
+	//Transducer Blocks:
+	for (int i = 0; i < compositeDirectory.numTB; i++) {
+		if (address == 7) { break; } //Transducer Block broken?
+		InfoTB info{};
+		numRcvdB = readparam(fla, add, slo, indexOffsetTB.index, response);
+		getVal(&slotIndexAddr, response + ((indexOffsetTB.offset - 1 + i) * 4), sizeof(slotIndexAddr));
+		numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index, response);
+		memcpy(&value8, response + 1, 1);
+		info.blockType = blockTypes.at(value8);
+		memcpy(&value8, response + 2, 1);
+		info.parentClass = tbTypes.at(value8);
+		memcpy(&value8, response + 3, 1);
+		info.childClass = value8;
+		if (info.parentClass == "Pressure" && info.childClass == 1) {
+
+		}
+		else if (info.parentClass == "Temperature" && info.childClass == 1) {
+
+		}
+
+		tbs.push_back(info);
+	}
+
+	//Function Blocks:
+	for (int i = 0; i < compositeDirectory.numFB; i++) {
+		if (address == 7 && i == compositeDirectory.numFB - 1) { break; } //Function Block broken?
+		InfoFB info{};
+		numRcvdB = readparam(fla, add, slo, indexOffsetFB.index, response);
+		getVal(&slotIndexAddr, response + ((indexOffsetFB.offset - 1 + i) * 4), sizeof(slotIndexAddr));
+		numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index, response);
+		memcpy(&value8, response + 1, 1);
+		info.blockType = blockTypes.at(value8);
+		memcpy(&value8, response + 2, 1);
+		info.parentClass = fbTypes.at(value8);
+		memcpy(&value8, response + 3, 1);
+		info.childClass = value8;
+		if (info.parentClass == "Input" && info.childClass == 1) {
+			numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index+10, response);
+			getVal(&value101.bytes, response, 4);
+			info.value = value101.data.value;
+		}
+
+		fbs.push_back(info);
+	}
+
+
 	return 0;
 }
 
@@ -184,10 +356,9 @@ int main(int argc, char **argv) {
 	*/
 
 
-	unsigned char fla = 0xff & rand();
-	unsigned int add = 6;
-	unsigned int slo = 1;
-	unsigned int idx = 0;
+	
+	uint16_t add = 6;
+
 	while (true) {
 		printf("\nPlease enter Address of Device:");
 		cin >> add;
@@ -195,7 +366,7 @@ int main(int argc, char **argv) {
 		cin >> slo;
 		printf("\nIndex:");
 		cin >> idx;*/
-		readparam(fla, add, slo, idx);
+		int resp = startRequest(add);
 	}
 	
 }
