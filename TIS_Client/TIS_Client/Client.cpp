@@ -18,6 +18,8 @@ union Value101 {
 	unsigned char bytes [5];
 };
 
+tinyxml2::XMLDocument manIdTable;
+
 using namespace std;
 int readparam(unsigned char flag, unsigned char address, unsigned char slot, unsigned char index) {
 	//unsigned int iSockFd = INVALID_SOCKET;
@@ -105,7 +107,27 @@ int readparam(unsigned char flag, unsigned char address, unsigned char slot, uns
 	closesocket(iSockFd);
 }
 
+int getName(int id, const char* name) {
+	const char* name_str;
+	tinyxml2::XMLElement* level = manIdTable.FirstChildElement()->FirstChildElement("Manufacturer");
+	for (level; level; level = level->NextSiblingElement("Manufacturer")) {
+		const char* id_str;
+		id_str = level->Attribute("ID");
+		int id_int = stoi(id_str);
+		if (id_int == id) {
+			//printf("FOUND: ");
+			tinyxml2::XMLElement* nameEle = level->FirstChildElement("ManufacturerInfo")->FirstChildElement("ManufacturerName");
+			name_str = nameEle->GetText();
+			//printf("%d = %s", id_int, name_str);
+			name = name_str;
+			return 1;
+		}
+	}
+	return 0;
+}
+
 int main(int argc, char **argv) {
+	manIdTable.LoadFile("Man_ID_Table.xml");
 
 	WORD wVersionRequested;
 	WSADATA wsaData;
@@ -122,15 +144,10 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	/*tinyxml2::XMLDocument manIdTable;
-	manIdTable.LoadFile("Man_ID_Table.xml");
-	tinyxml2::XMLElement* level = manIdTable.FirstChildElement();
-	tinyxml2::XMLElement* man = level->FirstChildElement("Manufacturer");
-	tinyxml2::XMLElement* name = man->FirstChildElement("ManufacturerName");
-	tinyxml2::XMLText* text = name->FirstChild()->ToText();
-	const char* nameChars = text->Value();
-	printf("Name: %s", nameChars);*/
-
+	/* Test if ID is in xml
+	const char* name;
+	int test = getName(123, name);
+	*/
 
 
 	unsigned char fla = 0xff & rand();
