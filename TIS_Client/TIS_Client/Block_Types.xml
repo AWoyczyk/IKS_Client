@@ -1,0 +1,218 @@
+<BlockTypes>
+	<BlockType ID="1">
+		<TypeName>Physical Block</TypeName>
+		<ParentClass ID="1">
+			<PCName>Transmitter</PCName>
+		</ParentClass>
+		<ParentClass ID="2">
+			<PCName>Actuator</PCName>
+		</ParentClass>
+		<ParentClass ID="3">
+			<PCName>Discrete I/O</PCName>
+		</ParentClass>
+		<ParentClass ID="4">
+			<PCName>Controller</PCName>
+		</ParentClass>
+		<ParentClass ID="5">
+			<PCName>Analyser</PCName>
+		</ParentClass>
+		<ParentClass ID="6">
+			<PCName>Lab Device</PCName>
+		</ParentClass>
+		<ParentClass ID="127">
+			<PCName>Multi-Variable</PCName>
+		</ParentClass>
+	</BlockType>
+	<BlockType ID="2">
+		<TypeName>Function Block</TypeName>
+		<ParentClass ID="1">
+			<PCName>Input</PCName>
+			<Class ID="1">
+				<ClassName>Analog Input</ClassName>
+			</Class>
+			<Class ID="2">
+				<ClassName>Discrete Input</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="2">
+			<PCName>Output</PCName>
+			<Class ID="1">
+				<ClassName>Analog Output</ClassName>
+			</Class>
+			<Class ID="2">
+				<ClassName>Discrete Output</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="3">
+			<PCName>Control</PCName>
+			<Class ID="1">
+				<ClassName>PID</ClassName>
+			</Class>
+			<Class ID="2">
+				<ClassName>Sample Selector</ClassName>
+			</Class>
+			<Class ID="3">
+				<ClassName>Lab Device Control</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="4">
+			<PCName>Advanced Control</PCName>
+			<Class ID="1">
+				<ClassName>Lab Instruments</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="5">
+			<PCName>Calculation</PCName>
+		</ParentClass>
+		<ParentClass ID="6">
+			<PCName>Auxiliary</PCName>
+			<Class ID="1">
+				<ClassName>Ramp</ClassName>
+			</Class>
+			<Class ID="2">
+				<ClassName>BM Logbook</ClassName>
+			</Class>
+			<Class ID="3">
+				<ClassName>Sample</ClassName>
+			</Class>
+			<Class ID="8">
+				<ClassName>Totaliser</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="7">
+			<PCName>Alert</PCName>
+		</ParentClass>
+	</BlockType>
+	<BlockType ID="3">
+		<TypeName>Transducer Block</TypeName>
+		<ParentClass ID="1">
+			<PCName>Pressure</PCName>
+			<Class ID="1">
+				<ClassName>Differential</ClassName>
+			</Class>
+			<Class ID="2">
+				<ClassName>Absolute</ClassName>
+			</Class>
+			<Class ID="3">
+				<ClassName>Gage</ClassName>
+			</Class>
+			<Class ID="4">
+				<ClassName>Pressure + Level + Flow</ClassName>
+			</Class>
+			<Class ID="5">
+				<ClassName>Pressure + Level</ClassName>
+			</Class>
+			<Class ID="6">
+				<ClassName>Pressure + Flow</ClassName>
+			</Class>
+			<Class ID="7">
+				<ClassName>Mixed absolute / diff. Pressure</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="2">
+			<PCName>Temperature</PCName>
+			<Class ID="1">
+				<ClassName>Thermocouple (TC)</ClassName>
+			</Class>
+			<Class ID="2">
+				<ClassName>Resistance Thermometer (RTD)</ClassName>
+			</Class>
+			<Class ID="3">
+				<ClassName>Pyrometer</ClassName>
+			</Class>
+			<Class ID="16">
+				<ClassName>TC + DC U (DC Voltage)</ClassName>
+			</Class>
+			<Class ID="17">
+				<ClassName>RTD + R (R-Resistance)</ClassName>
+			</Class>
+			<Class ID="18">
+				<ClassName>TC+RTD+R+DC U</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="3">
+			<PCName>Flow</PCName>
+			<Class ID="1">
+				<ClassName>Electromagnetic</ClassName>
+			</Class>
+			<Class ID="2">
+				<ClassName>Vortex</ClassName>
+			</Class>
+			<Class ID="3">
+				<ClassName>Coriolis</ClassName>
+			</Class>
+			<Class ID="4">
+				<ClassName>Thermal Mass</ClassName>
+			</Class>
+			<Class ID="5">
+				<ClassName>Ultrasonic</ClassName>
+			</Class>
+			<Class ID="6">
+				<ClassName>Variable Area</ClassName>
+			</Class>
+			<Class ID="7">
+				<ClassName>Differential Pressure</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="4">
+			<PCName>Level</PCName>
+			<Class ID="1">
+				<ClassName>Hydrostatic</ClassName>
+			</Class>
+			<Class ID="2">
+				<ClassName>Echo Level</ClassName>
+			</Class>
+			<Class ID="3">
+				<ClassName>Radiometric</ClassName>
+			</Class>
+			<Class ID="4">
+				<ClassName>Capacity</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="5">
+			<PCName>Actuator</PCName>
+			<Class ID="1">
+				<ClassName>Electric</ClassName>
+			</Class>
+			<Class ID="2">
+				<ClassName>Electo-pneumatic</ClassName>
+			</Class>
+			<Class ID="3">
+				<ClassName>Electo-hydraulic</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="6">
+			<PCName>Discrete I/O</PCName>
+			<Class ID="1">
+				<ClassName>Sensor Input</ClassName>
+			</Class>
+			<Class ID="2">
+				<ClassName>Actuator</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="7">
+			<PCName>Analyzer</PCName>
+			<Class ID="1">
+				<ClassName>Standard</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="8">
+			<PCName>Auxiliary</PCName>
+			<Class ID="1">
+				<ClassName>Transfer</ClassName>
+			</Class>
+			<Class ID="2">
+				<ClassName>Control</ClassName>
+			</Class>
+			<Class ID="3">
+				<ClassName>Limit</ClassName>
+			</Class>
+		</ParentClass>
+		<ParentClass ID="9">
+			<PCName>Alarm</PCName>
+			<Class ID="1">
+				<ClassName>Binary Message</ClassName>
+			</Class>
+		</ParentClass>
+	</BlockType>
+</BlockTypes>

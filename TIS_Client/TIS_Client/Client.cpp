@@ -13,8 +13,8 @@
 
 union Value101 {
 	struct {
-		//unsigned char flag;
 		float value;
+		unsigned char flag;
 	} data;
 	unsigned char bytes [4];
 };
@@ -48,34 +48,44 @@ struct InfoCD {
 struct InfoPB {
 	std::string manName;
 	unsigned int manId;
-	char deviceId[16];
-	char hwRev[16];
-	char swRev[16];
+	char deviceId[17];
+	char hwRev[17];
+	char swRev[17];
+	unsigned int pcID;
+	unsigned int btID;
 	std::string parentClass;
 	std::string blockType;
 };
 
 struct InfoTB {
-	std::string unitName;
-	unsigned int childClass;
+	unsigned int ccID;
+	unsigned int pcID;
+	unsigned int btID;
+	unsigned int numValues;
+	std::vector<unsigned int> unitId;
+	std::vector<std::string> unitName;
+	std::vector<float> value;
+	std::vector<char> flag;
+	std::string childClass;
 	std::string parentClass;
 	std::string blockType;
-	unsigned int unitId;
 };
 
 struct InfoFB {
-	unsigned int childClass;
+	unsigned int ccID;
+	unsigned int pcID;
+	unsigned int btID;
+	std::string childClass;
 	std::string parentClass;
 	std::string blockType;
 	double value;
+	char flag;
+	std::string unit;
 };
 
-std::vector<std::string> blockTypes = {"-", "Physical Block", "Function Block", "Transducer Block"};
-std::vector<std::string> pbTypes = {"-", "Transmitter", "Actuator", "Discrete I/O", "Controller", "Analyser", "Lab Device"};
-std::vector<std::string> tbTypes = {"-", "Pressure", "Temperature", "Flow", "Level", "Actuator", "Discrete I/O", "Analyzer", "Auxiliary", "Alarm"};
-std::vector<std::string> fbTypes = {"-", "Input", "Output", "Control", "Advanced Control", "Calculation", "Auxiliary", "Alert"};
-
 tinyxml2::XMLDocument manIdTable;
+tinyxml2::XMLDocument blockTypes;
+int failCounter = 0;
 
 using namespace std;
 int readparam(unsigned char flag, unsigned char address, unsigned char slot, unsigned char index, unsigned char* response) {
@@ -83,8 +93,8 @@ int readparam(unsigned char flag, unsigned char address, unsigned char slot, uns
 
 	SOCKET iSockFd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if(iSockFd == INVALID_SOCKET) {
-		printf("socket fail\n");
-		printf("%d\n", WSAGetLastError());
+		printf("\nsocket fail");
+		printf("\n%d", WSAGetLastError());
 		exit(1);
 	}
 
@@ -98,7 +108,7 @@ int readparam(unsigned char flag, unsigned char address, unsigned char slot, uns
 	int bindRet = bind(iSockFd, (struct sockaddr*)&myAddr, sizeof(myAddr));
 
 	if (bindRet == -1) {
-		printf("bind fail\n");
+		printf("\nbind fail");
 		exit(1);
 	}
 
@@ -115,15 +125,15 @@ int readparam(unsigned char flag, unsigned char address, unsigned char slot, uns
 
 	int serverLen = sizeof(serverAddr);
 
-	printf("sending...\n");
+	//printf("sending...\n");
 
 	int sendRes = sendto(iSockFd, reinterpret_cast<const char*>(sbuf), 4, 0, (struct sockaddr*)&serverAddr, serverLen);
 
 	if (sendRes != 4) {
-		printf("send fail %d\n", sendRes);
+		printf("\nsend fail %d", sendRes);
 		exit(1);
 	}
-	printf("ok.\n");
+	//printf("ok.\n");
 
 	struct sockaddr_in cliAddr;
 	memset(&cliAddr, 0, sizeof(cliAddr));
@@ -132,14 +142,14 @@ int readparam(unsigned char flag, unsigned char address, unsigned char slot, uns
 	unsigned char buff[1024];
 	unsigned char* p = buff;
 
-	printf("receiving...\n");
+	//printf("receiving...\n");
 	int iRcvdBytes = recvfrom(iSockFd, reinterpret_cast<char*>(buff), 1024, 0, (struct sockaddr*)&cliAddr, &cliLen);
 
 	if (iRcvdBytes > 1) {
-		printf("received %3d bytes\n", iRcvdBytes-1);
+		//printf("received %3d bytes\n", iRcvdBytes-1);
 		if (buff[0] == sbuf[0]) {
 			memcpy(response, p+1, 1023 * sizeof(char));
-
+			failCounter = 0;
 			/*
 			int i;
 			for (i = 1; i < iRcvdBytes; i++) {
@@ -157,14 +167,20 @@ int readparam(unsigned char flag, unsigned char address, unsigned char slot, uns
 			*/
 		}
 		else {
-			printf("%d\n", WSAGetLastError());
-			printf("reveive fail: frame marker differs - sent: %d != rvcd: %d\n", sbuf[0], buff[0]);
+			//printf("\n%d", WSAGetLastError());
+			printf("\nreveive fail: frame marker differs - sent: %d != rvcd: %d", sbuf[0], buff[0]);
 		}
 	}
 	else {
-		printf("%d\n", WSAGetLastError());
-		printf("receive fail %d\n", iRcvdBytes);
-		exit(1);
+		//printf("\n%d", WSAGetLastError());
+		printf("\nreceive fail: %d data bytes", iRcvdBytes-1);
+		closesocket(iSockFd);
+		failCounter++;
+		if (failCounter >= 30) {
+			printf("\nConnection Problems... Abort");
+			return -1;
+		}
+		return 0;
 	}
 
 	closesocket(iSockFd);
@@ -190,12 +206,83 @@ int getName(int id, char* name) {
 	return 1;
 }
 
+int getBlock(unsigned int btID, unsigned int pcID, unsigned int ccID, char* bt, char* pc, char* cc) {
+	const char* name_str;
+	const char* id_str;
+	unsigned int id;
+	memset(bt, '\0', 64);
+	memset(pc, '\0', 64);
+	memset(cc, '\0', 64);
+	tinyxml2::XMLElement* nameEle;
+	tinyxml2::XMLElement* btLevel = blockTypes.FirstChildElement()->FirstChildElement("BlockType");
+	for (btLevel; btLevel; btLevel = btLevel->NextSiblingElement("BlockType")) {
+		id_str = btLevel->Attribute("ID");
+		id = stoi(id_str);
+		if (id == btID) {
+			nameEle = btLevel->FirstChildElement("TypeName");
+			name_str = nameEle->GetText();
+			strcpy(bt, name_str);
+			tinyxml2::XMLElement* pcLevel = btLevel->FirstChildElement("ParentClass");
+			for (pcLevel; pcLevel; pcLevel = pcLevel->NextSiblingElement("ParentClass")) {
+				id_str = pcLevel->Attribute("ID");
+				id = stoi(id_str);
+				if (id == pcID) {
+					nameEle = pcLevel->FirstChildElement("PCName");
+					name_str = nameEle->GetText();
+					strcpy(pc, name_str);
+					tinyxml2::XMLElement* ccLevel = pcLevel->FirstChildElement("Class");
+					for (ccLevel; ccLevel; ccLevel = ccLevel->NextSiblingElement("Class")) {
+						id_str = ccLevel->Attribute("ID");
+						id = stoi(id_str);
+						if (id == ccID) {
+							nameEle = ccLevel->FirstChildElement("ClassName");
+							name_str = nameEle->GetText();
+							strcpy(cc, name_str);
+						}
+					}
+				}
+			}
+		}
+	}
+	return 0;
+}
+
 int getVal(void * dest, unsigned char* src, int numBytes) {
 	for (int i = 0; i < numBytes; i++) {
 		unsigned char byte = *(src + i);
 		*((reinterpret_cast<unsigned char*>(dest))+(numBytes-(i+1))) = byte;
 	}
 	return 0;
+}
+
+int getUnitName(unsigned int id, char* s) {
+	switch (id) {
+	case 1342: strcpy(s, "%\0"); break;
+	case 1138: strcpy(s, "mbar\0"); break;
+	default: strcpy(s, "\0"); break;
+	}
+	return 1;
+}
+
+int printElements(InfoDM dm, InfoCD cd, InfoPB pb, std::vector<InfoTB> tbs, std::vector<InfoFB> fbs) {
+	printf("\n\nDevice ID: %s \nManufacturer: %s", pb.deviceId, pb.manName.c_str());
+	printf("\n\nNumber of Physical Blocks: %d\n  Parent Class: %s\n   HW-Revision: %s \n   SW-Revision: %s", cd.numPB, pb.parentClass.c_str(), pb.hwRev, pb.swRev);
+	printf("\n\nNumber of Transducer Blocks: %d", cd.numTB);
+	for (int i = 0; i < tbs.size(); i++) {
+		printf("\n  Parent Class: %s\n  Class: %s", tbs[i].parentClass.c_str(), tbs[i].childClass.c_str());
+		for (int j = 0; j < tbs[i].numValues; j++) {
+			printf("\n   %d Value: %.3f %s\n   Flag: %.2hhX", j, tbs[i].value[j], tbs[i].unitName[j].c_str(), tbs[i].flag[j]);
+		}
+	}
+	printf("\n\nNumber of Function Blocks: %d", cd.numFB);
+	for (int i = 0; i < fbs.size(); i++) {
+		printf("\n  Parent Class: %s\n  Class: %s", fbs[i].parentClass.c_str(), fbs[i].childClass.c_str());
+		if (fbs[i].pcID == 1) {
+			printf("\n   Value: %.3f %s\n   Flag: %.2hhX", fbs[i].value, fbs[i].unit.c_str(), fbs[i].flag);
+		}
+	}
+	printf("\n\n");
+	return 1;
 }
 
 int startRequest(unsigned int address) {
@@ -209,6 +296,9 @@ int startRequest(unsigned int address) {
 	Value101 value101;
 	uint8_t value8;
 	unsigned char str[16];
+	char bt[64];
+	char pc[64];
+	char cc[64];
 	indexOffset indexOffsetPB, indexOffsetFB, indexOffsetTB;
 	slotIndex slotIndexAddr;
 	InfoDM deviceManagement{};
@@ -224,7 +314,9 @@ int startRequest(unsigned int address) {
 	unsigned char fla = 0xff & rand();
 
 	//Device Management
+	printf("\nGet Device Management...");
 	numRcvdB = readparam(fla, add, slo, idx, response);
+	if (numRcvdB == -1 || numRcvdB == 0) { return 0;}
 
 	getVal(&numDirObj.bytes, response + 4, sizeof(numDirObj));
 	getVal(&numDirEntry.bytes, response + 6, sizeof(numDirEntry));
@@ -235,8 +327,10 @@ int startRequest(unsigned int address) {
 	deviceManagement.numB = numDirEntry.uint - numCompListDirEntry.uint;
 
 	//Directory List
+	printf("\nGet Directory...");
 	idx = firstCompDirListDirEntry.uint;
 	numRcvdB = readparam(fla, add, slo, idx, response);
+	if (numRcvdB == -1 || numRcvdB == 0) { return 0; }
 	getVal(&value16, response + 2, sizeof(value16));
 	getVal(&indexOffsetPB, response, sizeof(value16));
 	compositeDirectory.numPB = value16.uint;
@@ -247,14 +341,13 @@ int startRequest(unsigned int address) {
 	getVal(&indexOffsetFB, response + 8, sizeof(value16));
 	compositeDirectory.numFB = value16.uint;
 
-	//Directory
-	readparam(fla, add, slo, firstCompDirListDirEntry.uint, response);
-
 	/*
 	 * Physical Block:
 	 */
+	printf("\nGet Physical Block...");
 	if (indexOffsetPB.index != idx) {
 		numRcvdB = readparam(fla, add, slo, indexOffsetPB.index, response);
+		if (numRcvdB == -1 || numRcvdB == 0) { return 0; }
 		indexOffsetPB.offset -= numCompListDirEntry.uint;
 		indexOffsetTB.offset -= numCompListDirEntry.uint;
 		indexOffsetFB.offset -= numCompListDirEntry.uint;
@@ -262,78 +355,209 @@ int startRequest(unsigned int address) {
 	getVal(&slotIndexAddr, response + ((indexOffsetPB.offset - 1) * 4), sizeof(slotIndexAddr));
 	if (address == 7) { slotIndexAddr.index = 114; } //Physical Block at another index as stated
 	numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index, response);
-	memcpy(&value8, response+1, 1);
-	pbInfo.blockType = blockTypes.at(value8);
-	memcpy(&value8, response + 2, 1);
-	pbInfo.parentClass = pbTypes.at(value8);
+	if (numRcvdB == -1) { return 0; }
+	else if (numRcvdB) {
+		memcpy(&value8, response + 1, 1);
+		pbInfo.btID = value8;
+		memcpy(&value8, response + 2, 1);
+		pbInfo.pcID = value8;
+		getBlock(pbInfo.btID, pbInfo.pcID, 0, bt, pc, cc);
+		pbInfo.blockType = bt;
+		pbInfo.parentClass = pc;
+	}
 
 	//Manufacturer
 	numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 10, response);
-	getVal(&value16, response, sizeof(value16));
-	pbInfo.manId = value16.uint;
-	char s[64];
-	getName(pbInfo.manId, s);
-	pbInfo.manName = s;
+	if (numRcvdB == -1) { return 0; }
+	else if (numRcvdB) {
+		getVal(&value16, response, sizeof(value16));
+		pbInfo.manId = value16.uint;
+		char s[64];
+		getName(pbInfo.manId, s);
+		pbInfo.manName = s;
+	}
 	//DeviceId
 	numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 11, response);
-	strcpy(pbInfo.deviceId, reinterpret_cast<char*>(response));
+	if (numRcvdB == -1) { return 0; }
+	else if (numRcvdB) {
+		memcpy(pbInfo.deviceId, response, sizeof(char)*numRcvdB);
+		pbInfo.deviceId[16] = '\0';
+	}
 	//HW & SW Revision
 	numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 9, response);
-	strcpy(pbInfo.hwRev, reinterpret_cast<char*>(response));
+	if (numRcvdB == -1) { return 0; }
+	else if (numRcvdB) {
+		memcpy(pbInfo.hwRev, response, sizeof(char)*numRcvdB);
+		pbInfo.hwRev[16] = '\0';
+	}
 	numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 8, response);
-	strcpy(pbInfo.swRev, reinterpret_cast<char*>(response));
+	if (numRcvdB == -1) { return 0; }
+	else if (numRcvdB) {
+		memcpy(pbInfo.swRev, response, sizeof(char)*numRcvdB);
+		pbInfo.swRev[16] = '\0';
+	}
 
-	//Transducer Blocks:
+	/*
+	 *Transducer Blocks:
+	 */
+	printf("\nGet Transducer Blocks...");
 	for (int i = 0; i < compositeDirectory.numTB; i++) {
-		if (address == 7) { break; } //Transducer Block broken?
+		if (address == 7) { break; } //Transducer Block broken or at another address?
 		InfoTB info{};
 		numRcvdB = readparam(fla, add, slo, indexOffsetTB.index, response);
+		if (numRcvdB == -1 || numRcvdB == 0) { return 0; }
 		getVal(&slotIndexAddr, response + ((indexOffsetTB.offset - 1 + i) * 4), sizeof(slotIndexAddr));
 		numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index, response);
-		memcpy(&value8, response + 1, 1);
-		info.blockType = blockTypes.at(value8);
-		memcpy(&value8, response + 2, 1);
-		info.parentClass = tbTypes.at(value8);
-		memcpy(&value8, response + 3, 1);
-		info.childClass = value8;
-		if (info.parentClass == "Pressure" && info.childClass == 1) {
-
+		if (numRcvdB == -1) { return 0; }
+		else if(numRcvdB){
+			memcpy(&value8, response + 1, 1);
+			info.btID = value8;
+			memcpy(&value8, response + 2, 1);
+			info.pcID = value8;
+			memcpy(&value8, response + 3, 1);
+			info.ccID = value8;
+			getBlock(info.btID, info.pcID, info.ccID, bt, pc, cc);
+			info.blockType = bt;
+			info.parentClass = pc;
+			info.childClass = cc;
+			info.numValues = 0;
+			switch (info.pcID) {
+			case 1:
+				numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 18, response);
+				if (numRcvdB == -1) { return 0; }
+				else if (numRcvdB) {
+					getVal(&value101.bytes, response, 4);
+					getVal(&value101.data.flag, response + 4, 1);
+					info.value.push_back(value101.data.value);
+					info.flag.push_back(value101.data.flag);
+					info.numValues++;
+				}
+				numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 19, response);
+				if (numRcvdB == -1) { return 0; }
+				else if (numRcvdB) {
+					getVal(&value16, response, sizeof(value16));
+					info.unitId.push_back(value16.uint);
+					getUnitName(value16.uint, reinterpret_cast<char*>(str));
+					std::string s = reinterpret_cast<char*>(str);
+					info.unitName.push_back(s);
+				}
+				if (info.ccID == 4) {
+					numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 29, response);
+					if (numRcvdB == -1) { return 0; }
+					else if (numRcvdB) {
+						getVal(&value101.bytes, response, 4);
+						getVal(&value101.data.flag, response + 4, 1);
+						info.value.push_back(value101.data.value);
+						info.flag.push_back(value101.data.flag);
+						info.numValues++;
+					}
+					numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 30, response);
+					if (numRcvdB == -1) { return 0; }
+					else if (numRcvdB) {
+						getVal(&value16, response, sizeof(value16));
+						info.unitId.push_back(value16.uint);
+						getUnitName(value16.uint, reinterpret_cast<char*>(str));
+						std::string s = reinterpret_cast<char*>(str);
+						info.unitName.push_back(s);
+					}
+					numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 31, response);
+					if (numRcvdB == -1) { return 0; }
+					else if (numRcvdB) {
+						getVal(&value101.bytes, response, 4);
+						getVal(&value101.data.flag, response + 4, 1);
+						info.value.push_back(value101.data.value);
+						info.flag.push_back(value101.data.flag);
+						info.numValues++;
+					}
+					numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 32, response);
+					if (numRcvdB == -1) { return 0; }
+					else if (numRcvdB) {
+						getVal(&value16, response, sizeof(value16));
+						info.unitId.push_back(value16.uint);
+						getUnitName(value16.uint, reinterpret_cast<char*>(str));
+						std::string s = reinterpret_cast<char*>(str);
+						info.unitName.push_back(s);
+					}
+				}
+				break;
+			case 2:
+				numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 8, response);
+				if (numRcvdB == -1) { return 0; }
+				else if (numRcvdB) {
+					getVal(&value101.bytes, response, 4);
+					getVal(&value101.data.flag, response + 4, 1);
+					info.value.push_back(value101.data.value);
+					info.flag.push_back(value101.data.flag);
+					info.numValues++;
+				}
+				numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 9, response);
+				if (numRcvdB == -1) { return 0; }
+				else if (numRcvdB) {
+					getVal(&value16, response, sizeof(value16));
+					info.unitId.push_back(value16.uint);
+					getUnitName(value16.uint, reinterpret_cast<char*>(str));
+					std::string s = reinterpret_cast<char*>(str);
+					info.unitName.push_back(s);
+				}
+				break;
+			}
 		}
-		else if (info.parentClass == "Temperature" && info.childClass == 1) {
-
-		}
-
 		tbs.push_back(info);
 	}
 
-	//Function Blocks:
+	/*
+	 *Function Blocks:
+	 */
+	printf("\nGet Function Blocks...");
 	for (int i = 0; i < compositeDirectory.numFB; i++) {
-		if (address == 7 && i == compositeDirectory.numFB - 1) { break; } //Function Block broken?
+		if (address == 7 && i == compositeDirectory.numFB - 1) { break; } //Function Block broken or at another address?
 		InfoFB info{};
 		numRcvdB = readparam(fla, add, slo, indexOffsetFB.index, response);
+		if (numRcvdB == -1 || numRcvdB == 0) { return 0; }
 		getVal(&slotIndexAddr, response + ((indexOffsetFB.offset - 1 + i) * 4), sizeof(slotIndexAddr));
 		numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index, response);
-		memcpy(&value8, response + 1, 1);
-		info.blockType = blockTypes.at(value8);
-		memcpy(&value8, response + 2, 1);
-		info.parentClass = fbTypes.at(value8);
-		memcpy(&value8, response + 3, 1);
-		info.childClass = value8;
-		if (info.parentClass == "Input" && info.childClass == 1) {
-			numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index+10, response);
-			getVal(&value101.bytes, response, 4);
-			info.value = value101.data.value;
-		}
+		if (numRcvdB == -1) { return 0; }
+		else if (numRcvdB) {
+			memcpy(&value8, response + 1, 1);
+			info.btID = value8;
+			memcpy(&value8, response + 2, 1);
+			info.pcID = value8;
+			memcpy(&value8, response + 3, 1);
+			info.ccID = value8;
+			getBlock(info.btID, info.pcID, info.ccID, bt, pc, cc);
+			info.blockType = bt;
+			info.parentClass = pc;
+			info.childClass = cc;
 
+			switch (info.pcID) {
+			case 1: if (info.ccID == 1) {
+				numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 10, response);
+				if (numRcvdB == -1) { return 0; }
+				else if (numRcvdB) {
+					getVal(&value101.bytes, response, 4);
+					info.value = value101.data.value;
+					getVal(&value101.data.flag, response + 4, 1);
+					info.flag = value101.data.flag;
+				}
+				numRcvdB = readparam(fla, add, slotIndexAddr.slot, slotIndexAddr.index + 35, response);
+				if (numRcvdB == -1) { return 0; }
+				else if (numRcvdB == 16) {
+					memcpy(str, response, sizeof(char) * 16);
+					info.unit = *str;
+				}
+			}
+					break;
+			}
+		}
 		fbs.push_back(info);
 	}
-
-
-	return 0;
+	
+	return printElements(deviceManagement, compositeDirectory, pbInfo, tbs, fbs);
 }
 
 int main(int argc, char **argv) {
 	manIdTable.LoadFile("Man_ID_Table.xml");
+	blockTypes.LoadFile("Block_Types.xml");
 
 	WORD wVersionRequested;
 	WSADATA wsaData;
@@ -346,7 +570,7 @@ int main(int argc, char **argv) {
 	if (err != 0) {
 		/* Tell the user that we could not find a usable */
 		/* Winsock DLL.                                  */
-		printf("WSAStartup failed with error: %d\n", err);
+		printf("\nWSAStartup failed with error: %d", err);
 		return 1;
 	}
 
@@ -360,13 +584,17 @@ int main(int argc, char **argv) {
 	uint16_t add = 6;
 
 	while (true) {
-		printf("\nPlease enter Address of Device:");
+		printf("\nPlease enter Address of Device: ");
 		cin >> add;
 		/*printf("\nSlot:");
 		cin >> slo;
 		printf("\nIndex:");
 		cin >> idx;*/
-		int resp = startRequest(add);
+		if (startRequest(add) == 1) {
+		}
+		else {
+			printf("\nA problem occured, pleaes try again");
+		}
 	}
 	
 }

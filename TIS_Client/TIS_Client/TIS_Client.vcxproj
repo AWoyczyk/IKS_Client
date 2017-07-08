@@ -150,6 +150,7 @@
     <ClInclude Include="tinyxml2.h" />
   </ItemGroup>
   <ItemGroup>
+    <Xml Include="Block_Types.xml" />
     <Xml Include="Man_ID_Table.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
