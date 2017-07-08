@@ -286,6 +286,9 @@ int printElements(InfoDM dm, InfoCD cd, InfoPB pb, std::vector<InfoTB> tbs, std:
 }
 
 int startRequest(unsigned int address) {
+	if (address > 255) {
+		return 0;
+	}
 	int numRcvdB;
 	Unsigned16 numDirObj;
 	Unsigned16 numDirEntry;
@@ -581,11 +584,20 @@ int main(int argc, char **argv) {
 
 
 	
-	uint16_t add = 6;
+	uint16_t add;
 
 	while (true) {
 		printf("\nPlease enter Address of Device: ");
-		cin >> add;
+		std::string s;
+		cin >> s;
+
+		try {
+			add = stoi(s);
+		}
+		catch (...) {
+			printf("\nA problem occured, pleaes try again");
+			continue;
+		}
 		/*printf("\nSlot:");
 		cin >> slo;
 		printf("\nIndex:");
