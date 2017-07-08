@@ -271,7 +271,7 @@ int printElements(InfoDM dm, InfoCD cd, InfoPB pb, std::vector<InfoTB> tbs, std:
 	for (int i = 0; i < tbs.size(); i++) {
 		printf("\n  Parent Class: %s\n  Class: %s", tbs[i].parentClass.c_str(), tbs[i].childClass.c_str());
 		for (int j = 0; j < tbs[i].numValues; j++) {
-			printf("\n   %d Value: %.3f %s\n   Flag: %.2hhX", j, tbs[i].value[j], tbs[i].unitName[j].c_str(), tbs[i].flag[j]);
+			printf("\n   %d. Value: %.3f %s\n   Flag: %.2hhX", j+1, tbs[i].value[j], tbs[i].unitName[j].c_str(), tbs[i].flag[j]);
 		}
 	}
 	printf("\n\nNumber of Function Blocks: %d", cd.numFB);
